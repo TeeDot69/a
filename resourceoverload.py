@@ -2,96 +2,190 @@ import tkinter as tk
 import random
 import time
 
+# List to keep track of all active windows to prevent them from being garbage collected
+# prematurely, especially with scheduled tasks.
+active_windows = []
+
 def create_window():
     """
-    Creates a new Tkinter Toplevel window that does not auto-close.
-    This version includes elements designed to be more resource-intensive.
+    Creates a new Tkinter Toplevel window with a simulated 3D ball animation
+    and a mechanism for the window itself to move around.
     """
-    # Create a new top-level window
     window = tk.Toplevel()
-    window.title(f"Intensive Spam Window {random.randint(1000, 9999)}")
+    window.title(f"Dynamic Intensive Spam Window {random.randint(1000, 9999)}")
 
-    # Randomly position the window on the screen
+    # Initial random position for the window
     screen_width = window.winfo_screenwidth()
     screen_height = window.winfo_screenheight()
-    x_pos = random.randint(50, screen_width - 450) # Adjusted for larger window
-    y_pos = random.randint(50, screen_height - 350) # Adjusted for larger window
-    window.geometry(f"400x300+{x_pos}+{y_pos}") # Make windows slightly larger
+    window_width = 400
+    window_height = 300
+    x_pos = random.randint(50, screen_width - window_width - 50)
+    y_pos = random.randint(50, screen_height - window_height - 50)
+    window.geometry(f"{window_width}x{window_height}+{x_pos}+{y_pos}")
 
-    # Add multiple labels and a text widget to increase initial resource load
-    label1 = tk.Label(window, text="Intensive Window Activity!", font=("Arial", 14, "bold"), padx=10, pady=5)
+    # Store movement directions and animation state directly on the window object
+    # This helps encapsulate state for each individual window.
+    window.x_dir = random.choice([-5, 5]) # Window movement speed and direction
+    window.y_dir = random.choice([-5, 5])
+
+    # --- Changes for multiple balls ---
+    num_balls = 10 # Number of balls to display in each window
+    window.balls_data = [] # List to store data for each ball
+
+    for _ in range(num_balls):
+        window.balls_data.append({
+            'radius': random.randint(40, 60), # Initial radius for each 3D ball
+            'radius_direction': random.choice([-1, 1]), # 1 for increasing, -1 for decreasing
+            'x': random.randint(50, window_width - 50), # Ball's initial X position on canvas
+            'y': random.randint(50, window_height - 150), # Ball's initial Y position on canvas
+            'dx': random.choice([-3, 3]), # Ball's movement speed on canvas
+            'dy': random.choice([-3, 3]),
+            'color_offset': random.randint(0, 20) # For unique colors
+        })
+    # --- End changes for multiple balls ---
+
+    # Add labels and text area (for resource intensity)
+    label1 = tk.Label(window, text="Intensive & Dynamic Activity!", font=("Arial", 14, "bold"), padx=10, pady=5)
     label1.pack()
 
-    label2 = tk.Label(window, text="Watch resource usage...", font=("Arial", 10), padx=10, pady=2)
+    label2 = tk.Label(window, text=f"Watch the {num_balls} balls!", font=("Arial", 10), padx=10, pady=2)
     label2.pack()
 
-    text_area = tk.Text(window, height=3, width=40, wrap=tk.WORD, bg="lightgray")
-    text_area.insert(tk.END, "This window is performing some 'intensive' operations...\n")
+    text_area = tk.Text(window, height=2, width=40, wrap=tk.WORD, bg="lightgray")
+    text_area.insert(tk.END, "This window is performing continuous animations...\n")
     text_area.pack(pady=5)
-    text_area.config(state=tk.DISABLED) # Make it read-only
+    text_area.config(state=tk.DISABLED)
 
-    # Add a canvas for dynamic drawing, which can be CPU intensive
-    canvas = tk.Canvas(window, width=380, height=150, bg="white", bd=2, relief="sunken")
+    # Canvas for the simulated 3D ball animation
+    canvas_width = window_width - 20 # Adjust for padding
+    canvas_height = 150
+    canvas = tk.Canvas(window, width=canvas_width, height=canvas_height, bg="darkblue", bd=2, relief="sunken")
     canvas.pack(pady=5)
+    window.canvas = canvas # Store canvas on window for easy access in animation function
 
-    def draw_random_shapes():
+    def animate_ball():
         """
-        Draws multiple random shapes on the canvas to simulate intensive drawing.
+        Animates simulated 3D balls on the canvas.
+        Each ball moves, bounces off edges, and its size pulses.
         """
-        if not window.winfo_exists(): # Check if the window still exists before drawing
-            return
+        if not window.winfo_exists():
+            return # Stop animation if window is closed
 
-        canvas.delete("all") # Clear previous drawings
+        canvas.delete("all")
 
-        num_shapes = random.randint(5, 20) # Draw 5 to 20 shapes
-        for _ in range(num_shapes):
-            shape_type = random.choice(["oval", "rectangle", "line"])
-            color = "#%06x" % random.randint(0, 0xFFFFFF) # Random hex color
+        # Iterate through each ball's data and update/draw it
+        for ball_data in window.balls_data:
+            # Update ball position
+            ball_data['x'] += ball_data['dx']
+            ball_data['y'] += ball_data['dy']
 
-            x1, y1 = random.randint(0, 380), random.randint(0, 150)
-            x2, y2 = random.randint(0, 380), random.randint(0, 150)
+            # Bounce off canvas edges
+            if ball_data['x'] + ball_data['radius'] > canvas_width or ball_data['x'] - ball_data['radius'] < 0:
+                ball_data['dx'] *= -1
+            if ball_data['y'] + ball_data['radius'] > canvas_height or ball_data['y'] - ball_data['radius'] < 0:
+                ball_data['dy'] *= -1
 
-            if shape_type == "oval":
-                canvas.create_oval(x1, y1, x2, y2, fill=color, outline="")
-            elif shape_type == "rectangle":
-                canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="")
-            else: # line
-                canvas.create_line(x1, y1, x2, y2, fill=color, width=random.randint(1, 5))
+            # Update ball radius for "3D" pulsing effect
+            ball_data['radius'] += ball_data['radius_direction'] * 0.5 # Smaller step for smoother pulse
+            if ball_data['radius'] >= 60: # Max radius
+                ball_data['radius_direction'] = -1
+            elif ball_data['radius'] <= 40: # Min radius
+                ball_data['radius_direction'] = 1
 
-        # Schedule the next drawing update
-        window.after(50, draw_random_shapes) # Update every 50 milliseconds
+            # Calculate a color based on radius to simulate depth/intensity
+            # Lighter when larger (closer), darker when smaller (further)
+            # Add unique color offset for each ball
+            intensity = int(255 * (ball_data['radius'] - 40) / 20)
+            color_val = max(0, min(255, intensity + ball_data['color_offset']))
+            ball_color = f"#FF{color_val:02x}{color_val:02x}" # Red base, green/blue vary
 
-    # Start the continuous drawing
-    draw_random_shapes()
+            # Draw the ball (oval)
+            canvas.create_oval(
+                ball_data['x'] - ball_data['radius'],
+                ball_data['y'] - ball_data['radius'],
+                ball_data['x'] + ball_data['radius'],
+                ball_data['y'] + ball_data['radius'],
+                fill=ball_color,
+                outline="white",
+                width=2
+            )
+
+        window.after(20, animate_ball) # Update ball animation every 20 milliseconds
+
+    def move_window_around():
+        """
+        Moves the window around the screen, bouncing off the screen edges.
+        """
+        if not window.winfo_exists():
+            return # Stop movement if window is closed
+
+        current_geometry = window.geometry().split('+')
+        current_x = int(current_geometry[1])
+        current_y = int(current_geometry[2])
+
+        new_x = current_x + window.x_dir
+        new_y = current_y + window.y_dir
+
+        # Reverse direction if hitting screen edges
+        if new_x + window_width > screen_width or new_x < 0:
+            window.x_dir *= -1
+            new_x = current_x + window.x_dir # Re-calculate new_x after bounce
+        if new_y + window_height > screen_height or new_y < 0:
+            window.y_dir *= -1
+            new_y = current_y + window.y_dir # Re-calculate new_y after bounce
+
+        window.geometry(f"{window_width}x{window_height}+{new_x}+{new_y}")
+        window.after(50, move_window_around) # Update window position every 50 milliseconds
+
+    # Start the animations and movement for this window
+    animate_ball()
+    move_window_around()
 
     # Add a close button
-    close_button = tk.Button(window, text="Close This Intensive Window", command=window.destroy, bg="red", fg="white")
+    close_button = tk.Button(window, text="Close This Dynamic Window", command=window.destroy, bg="red", fg="white")
     close_button.pack(pady=5)
+
+    # When a window is closed, remove it from the active_windows list
+    window.protocol("WM_DELETE_WINDOW", lambda: on_window_close(window))
+    active_windows.append(window) # Add to list of active windows
+
+def on_window_close(window):
+    """Handles cleanup when a window is closed."""
+    window.destroy()
+    if window in active_windows:
+        active_windows.remove(window)
+
+def create_and_schedule_next_window(root_instance):
+    """
+    Creates a new window and then schedules the next one.
+    This uses root.after to keep the main event loop responsive.
+    """
+    if root_instance.winfo_exists(): # Only create if the root is still active
+        create_window()
+        # Schedule the next window creation for 50 milliseconds later (20 windows/sec)
+        root_instance.after(50, lambda: create_and_schedule_next_window(root_instance))
+    else:
+        print("Root window closed, stopping new window creation.")
 
 def spam_windows_continuously():
     """
-    Continuously spams Tkinter windows at a rate of approximately 5 per second,
-    and the windows do not auto-close. Each window is now more resource-intensive.
+    Continuously spams Tkinter windows at a rate of approximately 20 per second.
+    Windows do not auto-close, move around, and display a simulated 3D ball animation.
+    This version uses `root.after` to maintain responsiveness.
     """
-    # Delay in milliseconds between opening each window to achieve ~5 windows/second
-    # 1000 ms / 5 windows = 200 ms per window
-    delay_per_window = 200
-
-    # Initialize the main Tkinter window (root). This is necessary for Toplevel windows.
-    # We hide the root window as it's not directly part of the spamming.
     root = tk.Tk()
     root.withdraw() # Hide the main root window
 
-    print("Starting continuous spam of more resource-intensive Tkinter windows (5 windows/second, no auto-close).")
-    print("Close the terminal or use Ctrl+C to stop the program.")
+    print("Starting continuous spam of dynamic, intensive Tkinter windows (20 windows/second, no auto-close).")
+    print("Windows will move around and display a simulated 3D ball animation.")
+    print("Close the terminal or all individual windows to stop the program.")
 
-    while True:
-        create_window()
-        # Process pending Tkinter events. This is crucial for the windows to appear
-        # and for the `time.sleep` not to completely freeze the UI.
-        root.update_idletasks()
-        # Introduce a small delay before creating the next window
-        time.sleep(delay_per_window / 1000.0) # Convert milliseconds to seconds
+    # Start the first window creation, which will then schedule subsequent ones
+    create_and_schedule_next_window(root)
+
+    # Start the Tkinter event loop. This keeps the program running and processes all GUI events.
+    root.mainloop()
+    print("Main Tkinter loop terminated. All windows should be closed.")
 
 if __name__ == "__main__":
     spam_windows_continuously()
