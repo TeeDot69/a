@@ -155,33 +155,37 @@ def on_window_close(window):
     if window in active_windows:
         active_windows.remove(window)
 
-def create_and_schedule_next_window(root_instance):
+def create_batch_of_windows(root_instance):
     """
-    Creates a new window and then schedules the next one.
-    This uses root.after to keep the main event loop responsive.
+    Creates a batch of 20 new windows almost instantly, and then schedules
+    the next batch to be created after 1 second.
     """
     if root_instance.winfo_exists(): # Only create if the root is still active
-        create_window()
-        # Schedule the next window creation for 50 milliseconds later (20 windows/sec)
-        root_instance.after(50, lambda: create_and_schedule_next_window(root_instance))
+        print(f"Opening a batch of 20 windows...")
+        for _ in range(20): # Open 20 windows almost instantly
+            create_window()
+            # This line helps Tkinter process the new window faster,
+            # potentially making the batch appear more synchronously.
+            root_instance.update_idletasks()
+        # Schedule the next batch to open in 1000 milliseconds (1 second)
+        root_instance.after(1000, lambda: create_batch_of_windows(root_instance))
     else:
-        print("Root window closed, stopping new window creation.")
+        print("Root window closed, stopping new window batch creation.")
 
 def spam_windows_continuously():
     """
-    Continuously spams Tkinter windows at a rate of approximately 20 per second.
-    Windows do not auto-close, move around, and display a simulated 3D ball animation.
-    This version uses `root.after` to maintain responsiveness.
+    Continuously spams Tkinter windows by opening batches of 20 windows every second.
+    Windows do not auto-close, move around, and each displays simulated 3D ball animations.
     """
     root = tk.Tk()
     root.withdraw() # Hide the main root window
 
-    print("Starting continuous spam of dynamic, intensive Tkinter windows (20 windows/second, no auto-close).")
+    print("Starting continuous spam of dynamic, intensive Tkinter windows (batches of 20 windows/second, no auto-close).")
     print("Windows will move around and display a simulated 3D ball animation.")
     print("Close the terminal or all individual windows to stop the program.")
 
-    # Start the first window creation, which will then schedule subsequent ones
-    create_and_schedule_next_window(root)
+    # Start the first batch creation, which will then schedule subsequent batches
+    create_batch_of_windows(root)
 
     # Start the Tkinter event loop. This keeps the program running and processes all GUI events.
     root.mainloop()
