@@ -5,6 +5,7 @@ import time
 # List to keep track of all active windows to prevent them from being garbage collected
 # prematurely, especially with scheduled tasks.
 active_windows = []
+batch_counter = 0 # Global counter for batches created
 
 def create_window():
     """
@@ -160,17 +161,25 @@ def create_batch_of_windows(root_instance):
     Creates a batch of 20 new windows almost instantly, and then schedules
     the next batch to be created after 1 second.
     """
+    global batch_counter # Access the global counter
     if root_instance.winfo_exists(): # Only create if the root is still active
-        print(f"Opening a batch of 20 windows...")
+        batch_counter += 1
+        print(f"Opening batch {batch_counter}: 20 windows...")
         for _ in range(20): # Open 20 windows almost instantly
-            create_window()
-            # This line helps Tkinter process the new window faster,
-            # potentially making the batch appear more synchronously.
-            root_instance.update_idletasks()
+            try:
+                create_window()
+                # This line helps Tkinter process the new window faster,
+                # potentially making the batch appear more synchronously.
+                root_instance.update_idletasks()
+            except Exception as e:
+                print(f"Error creating window in batch {batch_counter}: {e}")
+                # If an error occurs, it's safer to break and not continue this batch
+                # to prevent a cascade of errors or a complete freeze.
+                break
         # Schedule the next batch to open in 1000 milliseconds (1 second)
         root_instance.after(1000, lambda: create_batch_of_windows(root_instance))
     else:
-        print("Root window closed, stopping new window batch creation.")
+        print("Root window closed or does not exist, stopping new window batch creation.")
 
 def spam_windows_continuously():
     """
@@ -188,8 +197,13 @@ def spam_windows_continuously():
     create_batch_of_windows(root)
 
     # Start the Tkinter event loop. This keeps the program running and processes all GUI events.
-    root.mainloop()
-    print("Main Tkinter loop terminated. All windows should be closed.")
+    try:
+        root.mainloop()
+    except Exception as e:
+        print(f"An unexpected error occurred in the main Tkinter loop: {e}")
+    finally:
+        print("Main Tkinter loop terminated. All windows should be closed.")
+
 
 if __name__ == "__main__":
     spam_windows_continuously()
